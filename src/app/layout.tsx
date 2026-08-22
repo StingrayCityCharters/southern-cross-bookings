@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   description: "Concierge holds and owner approvals for Stingray City Charters.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} h-full antialiased`}>

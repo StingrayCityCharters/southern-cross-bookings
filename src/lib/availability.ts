@@ -1,5 +1,6 @@
 import { slotLabel, yearMonthIso } from "./calendar";
 import type {
+  BlockedRange,
   Booking,
   Database,
   SlotAvailability,
@@ -8,6 +9,14 @@ import type {
 } from "./types";
 
 const ACTIVE_STATUSES = new Set(["pending", "confirmed"]);
+
+export function blockedRangeForDate(db: Database, date: string): BlockedRange | undefined {
+  return db.blockedRanges.find((range) => range.startDate <= date && date <= range.endDate);
+}
+
+export function isDateBlocked(db: Database, date: string) {
+  return Boolean(blockedRangeForDate(db, date));
+}
 
 export function activeCharters(
   db: Database,
@@ -49,14 +58,17 @@ export function slotForTrip(
 ): SlotAvailability | null {
   const trip = db.trips.find((item) => item.id === tripId && item.active);
   if (!trip) return null;
+  const blocked = Boolean(blockedRangeForDate(db, date));
   const active = activeCharters(db, tripId, date, excludeId);
-  const remaining = Math.max(0, trip.boats - active.length);
+  const remaining = blocked ? 0 : Math.max(0, trip.boats - active.length);
+  const status = blocked && active.length === 0 ? "blocked" : statusFor(active, remaining);
   return {
     tripId: trip.id,
     shortLabel: slotLabel(trip.startTime),
-    status: statusFor(active, remaining),
+    status,
     remaining,
     boats: trip.boats,
+    blocked,
   };
 }
 
@@ -70,6 +82,7 @@ export function availabilityForDate(db: Database, date: string): TripAvailabilit
         shortLabel: slot?.shortLabel ?? slotLabel(trip.startTime),
         status: slot?.status ?? "available",
         remaining: slot?.remaining ?? trip.boats,
+        blocked: slot?.blocked ?? false,
       };
     });
 }
@@ -92,7 +105,21 @@ export function availabilityForMonth(db: Database, year: number, month: number) 
     month: yearMonthIso(year, month),
     trips: trips.map((trip) => ({ ...trip, shortLabel: slotLabel(trip.startTime) })),
     days,
+    blockedRanges: db.blockedRanges,
   };
+}
+
+export function bookingsConflictingWithRange(db: Database, startDate: string, endDate: string) {
+  const start = startDate <= endDate ? startDate : endDate;
+  const end = startDate <= endDate ? endDate : startDate;
+  return db.bookings
+    .filter(
+      (booking) =>
+        (booking.status === "pending" || booking.status === "confirmed") &&
+        booking.date >= start &&
+        booking.date <= end,
+    )
+    .sort((a, b) => a.date.localeCompare(b.date) || a.tripName.localeCompare(b.tripName));
 }
 
 export function visibleBookings(

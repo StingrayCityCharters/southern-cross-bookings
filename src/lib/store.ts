@@ -34,6 +34,7 @@ const seed: Database = {
   ],
   bookings: [],
   sessions: [],
+  blockedRanges: [],
 };
 
 const defaultDetails: Record<string, string> = {
@@ -81,6 +82,7 @@ async function readDb(): Promise<Database> {
       trips: (parsed.trips?.length ? parsed.trips : seed.trips).map(normalizeTrip),
       bookings: (parsed.bookings ?? []).map(normalizeBooking),
       sessions: parsed.sessions ?? [],
+      blockedRanges: parsed.blockedRanges ?? [],
     };
   } catch {
     await mkdir(DATA_DIR, { recursive: true });

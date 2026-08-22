@@ -58,6 +58,7 @@ export async function POST(request: Request) {
   jar.set(SESSION_COOKIE, session.id, {
     httpOnly: true,
     sameSite: "lax",
+    secure: false,
     path: "/",
     maxAge: 60 * 60 * 24 * 14,
   });

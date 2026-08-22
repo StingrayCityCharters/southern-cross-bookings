@@ -2,15 +2,33 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AvailabilityCalendar } from "./AvailabilityCalendar";
+import { BlockDaysCalendar } from "./BlockDaysCalendar";
 import { BookingNotes } from "./BookingNotes";
 import { CancelTourForm } from "./CancelTourForm";
 import { SignOutButton } from "./SignOutButton";
-import { parseYearMonth, yearMonthIso } from "@/lib/calendar";
+import { BLOCK_REASONS } from "@/lib/blocks";
+import { datesBetween, parseYearMonth, yearMonthIso } from "@/lib/calendar";
 import { formatDate, formatTime, statusLabel, todayIso } from "@/lib/format";
-import type { Booking, PublicSession, SlotAvailability, SlotStatus, Trip } from "@/lib/types";
+import type {
+  BlockedRange,
+  Booking,
+  PublicSession,
+  SlotAvailability,
+  SlotStatus,
+  Trip,
+} from "@/lib/types";
 
 type Props = {
   session: PublicSession;
+};
+
+type BlockConflict = {
+  id: string;
+  guestName: string;
+  hotelName: string;
+  date: string;
+  tripName: string;
+  status: string;
 };
 
 type MonthPayload = {
@@ -34,6 +52,14 @@ export function OwnerApp({ session }: Props) {
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("12:00");
   const [openBookingId, setOpenBookingId] = useState("");
+  const [calendarTool, setCalendarTool] = useState<"view" | "block">("view");
+  const [blockedRanges, setBlockedRanges] = useState<BlockedRange[]>([]);
+  const [blockStart, setBlockStart] = useState("");
+  const [blockEnd, setBlockEnd] = useState("");
+  const [blockReason, setBlockReason] = useState<(typeof BLOCK_REASONS)[number]>("Weather");
+  const [blockNotes, setBlockNotes] = useState("");
+  const [blockMessage, setBlockMessage] = useState("");
+  const [conflictAlert, setConflictAlert] = useState<BlockConflict[]>([]);
 
   const pending = useMemo(
     () => bookings.filter((booking) => booking.status === "pending"),
@@ -64,21 +90,50 @@ export function OwnerApp({ session }: Props) {
     [bookings],
   );
   const openBooking = bookings.find((booking) => booking.id === openBookingId);
+  const selectedBlock = blockedRanges.find(
+    (range) => range.startDate <= selectedDate && selectedDate <= range.endDate,
+  );
+  const alreadyBlocked = useMemo(() => {
+    const dates = new Set<string>();
+    for (const range of blockedRanges) {
+      for (const date of datesBetween(range.startDate, range.endDate)) {
+        dates.add(date);
+      }
+    }
+    return dates;
+  }, [blockedRanges]);
+  const rangeEnd = blockEnd || blockStart;
+  const blockConflicts = useMemo(() => {
+    if (!blockStart || !rangeEnd) return [];
+    const start = blockStart <= rangeEnd ? blockStart : rangeEnd;
+    const end = blockStart <= rangeEnd ? rangeEnd : blockStart;
+    return bookings
+      .filter(
+        (booking) =>
+          (booking.status === "pending" || booking.status === "confirmed") &&
+          booking.date >= start &&
+          booking.date <= end,
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [bookings, blockStart, rangeEnd]);
   const openBookingTrip = trips.find((trip) => trip.id === openBooking?.tripId);
 
   async function load() {
-    const [bookingsRes, availabilityRes, tripsRes] = await Promise.all([
+    const [bookingsRes, availabilityRes, tripsRes, blocksRes] = await Promise.all([
       fetch("/api/bookings"),
       fetch(`/api/availability?month=${yearMonthIso(year, month)}`),
       fetch("/api/trips"),
+      fetch("/api/blocks"),
     ]);
     const bookingData = (await bookingsRes.json()) as { bookings?: Booking[] };
     const availability = (await availabilityRes.json()) as MonthPayload;
     const tripData = (await tripsRes.json()) as { trips?: Trip[] };
+    const blockData = (await blocksRes.json()) as { blockedRanges?: BlockedRange[] };
     setBookings(bookingData.bookings ?? []);
     setDays(availability.days ?? {});
     setCalendarTrips(availability.trips ?? []);
     setTrips(tripData.trips ?? []);
+    setBlockedRanges(blockData.blockedRanges ?? []);
   }
 
   useEffect(() => {
@@ -116,7 +171,44 @@ export function OwnerApp({ session }: Props) {
     await load();
   }
 
-  function selectSlot(date: string, tripId: string, _status: SlotStatus) {
+  async function saveBlock(acknowledgeConflicts = false, event?: FormEvent) {
+    event?.preventDefault();
+    setError("");
+    setBlockMessage("");
+    const response = await fetch("/api/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startDate: blockStart,
+        endDate: blockEnd || blockStart,
+        reason: blockReason,
+        notes: blockNotes,
+        acknowledgeConflicts,
+      }),
+    });
+    const data = (await response.json()) as { error?: string; conflicts?: BlockConflict[] };
+    if (response.status === 409 && data.conflicts?.length) {
+      setConflictAlert(data.conflicts);
+      return;
+    }
+    if (!response.ok) {
+      setError(data.error ?? "Could not block those days.");
+      return;
+    }
+    setConflictAlert([]);
+    setBlockStart("");
+    setBlockEnd("");
+    setBlockNotes("");
+    setBlockMessage("Those days are now blocked.");
+    await load();
+  }
+
+  async function removeBlock(id: string) {
+    await fetch(`/api/blocks/${id}`, { method: "DELETE" });
+    await load();
+  }
+
+  function selectSlot(date: string, tripId: string, _status: SlotStatus, _blocked: boolean) {
     setSelectedDate(date);
     setSelectedTripId(tripId);
   }
@@ -151,6 +243,24 @@ export function OwnerApp({ session }: Props) {
 
       {tab === "calendar" ? (
         <section className="space-y-3">
+          <label className="block space-y-1 text-sm font-medium text-cyan-900">
+            Calendar tools
+            <select
+              value={calendarTool}
+              onChange={(event) => {
+                setCalendarTool(event.target.value as "view" | "block");
+                setError("");
+                setBlockMessage("");
+              }}
+              className="w-full rounded-2xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+            >
+              <option value="view">See bookings</option>
+              <option value="block">Block days</option>
+            </select>
+          </label>
+
+          {calendarTool === "view" ? (
+            <>
           <AvailabilityCalendar
             year={year}
             month={month}
@@ -170,7 +280,13 @@ export function OwnerApp({ session }: Props) {
                 ? `${formatDate(selectedDate)} · ${selectedTrip.name}`
                 : formatDate(selectedDate)}
             </h2>
-            {selectedBookings.length === 0 ? (
+            {selectedBlock ? (
+              <p className="mt-2 text-sm text-rose-800">
+                Blocked: {selectedBlock.reason}
+                {selectedBlock.notes ? ` — ${selectedBlock.notes}` : ""}
+              </p>
+            ) : null}
+            {selectedBookings.length === 0 && !selectedBlock ? (
               <p className="mt-2 text-sm text-cyan-700">
                 {selectedTrip ? "This private charter is open." : "Tap a time on the calendar."}
               </p>
@@ -208,6 +324,106 @@ export function OwnerApp({ session }: Props) {
               ))
             )}
           </div>
+            </>
+          ) : (
+            <>
+              <BlockDaysCalendar
+                year={year}
+                month={month}
+                onMonthChange={(nextYear, nextMonth) => {
+                  setYear(nextYear);
+                  setMonth(nextMonth);
+                }}
+                startDate={blockStart}
+                endDate={blockEnd}
+                onRangeChange={(start, end) => {
+                  setBlockStart(start);
+                  setBlockEnd(end);
+                  setConflictAlert([]);
+                  setBlockMessage("");
+                }}
+                alreadyBlocked={alreadyBlocked}
+                trips={calendarTrips}
+                days={days}
+                bookings={bookings}
+              />
+              <form onSubmit={(event) => saveBlock(false, event)} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
+                <label className="block space-y-1 text-sm font-medium text-cyan-900">
+                  Reason
+                  <select
+                    value={blockReason}
+                    onChange={(event) =>
+                      setBlockReason(event.target.value as (typeof BLOCK_REASONS)[number])
+                    }
+                    className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+                  >
+                    {BLOCK_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {reason}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1 text-sm text-cyan-800">
+                  Extra note {blockReason === "Other" ? "(required)" : "(optional)"}
+                  <textarea
+                    value={blockNotes}
+                    onChange={(event) => setBlockNotes(event.target.value)}
+                    className="min-h-20 w-full rounded-xl border border-cyan-900/15 px-3 py-3 text-cyan-950"
+                    placeholder="Anything the office should know"
+                  />
+                </label>
+                {blockConflicts.length > 0 ? (
+                  <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                    <p className="font-semibold">
+                      {blockConflicts.length} booking
+                      {blockConflicts.length === 1 ? "" : "s"} already on these days
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {blockConflicts.map((booking) => (
+                        <li key={booking.id}>
+                          {formatDate(booking.date)} · {booking.guestName} · {booking.hotelName} ·{" "}
+                          {booking.tripName} · {statusLabel(booking.status)}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2">Cancel those tours first, or confirm the conflict in the next step.</p>
+                  </div>
+                ) : null}
+                {blockMessage ? <p className="text-sm text-emerald-700">{blockMessage}</p> : null}
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-cyan-800 px-4 py-3 font-semibold text-white"
+                >
+                  Block highlighted days
+                </button>
+              </form>
+              <section className="space-y-2">
+                <h3 className="font-semibold text-cyan-950">Current blocks</h3>
+                {blockedRanges.length === 0 ? (
+                  <p className="text-sm text-cyan-700">No blocked days yet.</p>
+                ) : (
+                  blockedRanges.map((range) => (
+                    <article key={range.id} className="rounded-2xl bg-white p-4 shadow-sm">
+                      <p className="font-semibold text-cyan-950">{range.reason}</p>
+                      <p className="text-sm text-cyan-700">
+                        {formatDate(range.startDate)}
+                        {range.startDate !== range.endDate ? ` – ${formatDate(range.endDate)}` : ""}
+                      </p>
+                      {range.notes ? <p className="text-sm text-cyan-800">{range.notes}</p> : null}
+                      <button
+                        type="button"
+                        onClick={() => removeBlock(range.id)}
+                        className="mt-2 text-sm text-cyan-800 underline"
+                      >
+                        Remove block
+                      </button>
+                    </article>
+                  ))
+                )}
+              </section>
+            </>
+          )}
         </section>
       ) : null}
 
@@ -358,6 +574,42 @@ export function OwnerApp({ session }: Props) {
             </>
           )}
         </section>
+      ) : null}
+
+      {conflictAlert.length > 0 ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-cyan-950/40 p-4 sm:items-center">
+          <div className="w-full max-w-md space-y-3 rounded-3xl bg-white p-5 shadow-lg">
+            <h2 className="font-serif text-2xl text-cyan-950">Booking conflict</h2>
+            <p className="text-sm text-cyan-800">
+              These days already have pending or confirmed charters. Blocking them will not cancel those
+              tours.
+            </p>
+            <ul className="max-h-48 space-y-1 overflow-auto text-sm text-cyan-900">
+              {conflictAlert.map((booking) => (
+                <li key={booking.id}>
+                  {formatDate(booking.date)} · {booking.guestName} · {booking.hotelName} ·{" "}
+                  {booking.tripName} · {statusLabel(booking.status)}
+                </li>
+              ))}
+            </ul>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConflictAlert([])}
+                className="rounded-xl bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-900"
+              >
+                Go back
+              </button>
+              <button
+                type="button"
+                onClick={() => saveBlock(true)}
+                className="rounded-xl bg-cyan-800 px-3 py-2 text-sm font-semibold text-white"
+              >
+                Block anyway
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

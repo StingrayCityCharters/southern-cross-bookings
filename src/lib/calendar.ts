@@ -41,6 +41,19 @@ export function slotLabel(startTime: string) {
   return minute === 0 ? `${display}${suffix}` : `${display}:${String(minute).padStart(2, "0")}${suffix}`;
 }
 
+export function datesBetween(startDate: string, endDate: string) {
+  const start = startDate <= endDate ? startDate : endDate;
+  const end = startDate <= endDate ? endDate : startDate;
+  const dates: string[] = [];
+  const cursor = new Date(`${start}T00:00:00`);
+  const last = new Date(`${end}T00:00:00`);
+  while (cursor <= last) {
+    dates.push(isoDate(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate()));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
 export function monthTitle(year: number, month: number) {
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(
     new Date(year, month - 1, 1),

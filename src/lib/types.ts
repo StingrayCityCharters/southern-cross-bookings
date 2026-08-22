@@ -39,6 +39,16 @@ export type Session = {
   createdAt: string;
 };
 
+export type BlockedRange = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  notes: string;
+  createdAt: string;
+  createdBy: string;
+};
+
 export type Database = {
   accessCodes: {
     owner: string;
@@ -47,11 +57,12 @@ export type Database = {
   trips: Trip[];
   bookings: Booking[];
   sessions: Session[];
+  blockedRanges: BlockedRange[];
 };
 
 export type PublicSession = Omit<Session, "id">;
 
-export type SlotStatus = "available" | "pending" | "booked";
+export type SlotStatus = "available" | "pending" | "booked" | "blocked";
 
 export type SlotAvailability = {
   tripId: string;
@@ -59,10 +70,12 @@ export type SlotAvailability = {
   status: SlotStatus;
   remaining: number;
   boats: number;
+  blocked: boolean;
 };
 
 export type TripAvailability = Trip & {
   shortLabel: string;
   status: SlotStatus;
   remaining: number;
+  blocked: boolean;
 };

@@ -14,7 +14,7 @@ type Props = {
   selectedDate: string;
   selectedTripId: string;
   onMonthChange: (year: number, month: number) => void;
-  onSelectSlot: (date: string, tripId: string, status: SlotStatus) => void;
+  onSelectSlot: (date: string, tripId: string, status: SlotStatus, blocked: boolean) => void;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -23,6 +23,7 @@ function chipClass(status: SlotStatus, selected: boolean) {
   if (selected) return "bg-cyan-800 text-white";
   if (status === "available") return "bg-emerald-100 text-emerald-900";
   if (status === "pending") return "bg-amber-100 text-amber-900";
+  if (status === "blocked") return "bg-rose-100 text-rose-900";
   return "bg-slate-200 text-slate-500";
 }
 
@@ -79,11 +80,12 @@ export function AvailabilityCalendar({
           }
           const isPast = date < today;
           const isSelectedDay = date === selectedDate;
+          const dayBlocked = orderedTrips.some((trip) => days[date]?.[trip.id]?.blocked);
           return (
             <div
               key={date}
               className={`min-h-20 rounded-xl p-1 ${
-                isSelectedDay ? "ring-2 ring-cyan-700" : "bg-cyan-50/70"
+                isSelectedDay ? "ring-2 ring-cyan-700" : dayBlocked ? "bg-rose-50" : "bg-cyan-50/70"
               }`}
             >
               <p className="mb-1 text-right text-xs font-semibold text-cyan-900">
@@ -93,13 +95,14 @@ export function AvailabilityCalendar({
                 {orderedTrips.map((trip) => {
                   const slot = days[date]?.[trip.id];
                   const status = slot?.status ?? "available";
+                  const blocked = slot?.blocked ?? false;
                   const selected = selectedDate === date && selectedTripId === trip.id;
                   return (
                     <button
                       key={trip.id}
                       type="button"
                       disabled={isPast}
-                      onClick={() => onSelectSlot(date, trip.id, status)}
+                      onClick={() => onSelectSlot(date, trip.id, status, blocked)}
                       className={`rounded-md px-0.5 py-0.5 text-[10px] font-semibold leading-tight ${chipClass(status, selected)} ${isPast ? "opacity-30" : ""}`}
                     >
                       {trip.shortLabel}
@@ -121,6 +124,9 @@ export function AvailabilityCalendar({
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="h-3 w-3 rounded bg-slate-200 ring-1 ring-slate-300" /> Booked
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" /> Blocked
         </span>
       </div>
     </section>

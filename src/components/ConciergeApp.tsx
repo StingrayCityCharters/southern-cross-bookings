@@ -58,10 +58,14 @@ export function ConciergeApp({ session }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
-  function selectSlot(date: string, tripId: string, status: SlotStatus) {
+  function selectSlot(date: string, tripId: string, status: SlotStatus, blocked: boolean) {
     setSelectedDate(date);
     setSelectedTripId(tripId);
     setMessage("");
+    if (blocked) {
+      setError("The boat is blocked on that date.");
+      return;
+    }
     if (status === "available") {
       setError("");
       return;
@@ -79,7 +83,7 @@ export function ConciergeApp({ session }: Props) {
       setError("Tap an open time on the calendar.");
       return;
     }
-    if (selectedSlot && selectedSlot.status !== "available") {
+    if (selectedSlot && (selectedSlot.blocked || selectedSlot.status !== "available")) {
       setError("That private charter is not open.");
       return;
     }

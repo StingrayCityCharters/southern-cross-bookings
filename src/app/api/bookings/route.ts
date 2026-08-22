@@ -1,5 +1,5 @@
 import { requireSession } from "@/lib/auth";
-import { remainingCharters, visibleBookings } from "@/lib/availability";
+import { isDateBlocked, remainingCharters, visibleBookings } from "@/lib/availability";
 import { newId, readOnlyDb, withDb } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +54,9 @@ export async function POST(request: Request) {
     const trip = db.trips.find((item) => item.id === tripId && item.active);
     if (!trip) {
       return { error: "That charter time is not available." };
+    }
+    if (isDateBlocked(db, date)) {
+      return { error: "The boat is blocked on that date." };
     }
     if (remainingCharters(db, tripId, date) < 1) {
       return { error: "That private charter is already held or booked." };
