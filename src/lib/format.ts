@@ -6,6 +6,11 @@ export function formatTime(value: string) {
   return `${display}:${minute} ${suffix}`;
 }
 
+export function formatTimeRange(start: string, end: string) {
+  if (!start || !end) return "";
+  return `${formatTime(start)}–${formatTime(end)}`;
+}
+
 export function formatDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-US", {

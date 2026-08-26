@@ -1,4 +1,6 @@
-export type Role = "owner" | "concierge";
+export type Role = "owner" | "concierge" | "admin";
+
+export type AccessStatus = "active" | "denied";
 
 export type Trip = {
   id: string;
@@ -19,6 +21,9 @@ export type Booking = {
   date: string;
   guestName: string;
   guestCount: number;
+  charterType: string;
+  charterStartTime: string;
+  charterEndTime: string;
   hotelName: string;
   conciergeName: string;
   phone: string;
@@ -31,8 +36,19 @@ export type Booking = {
   updatedAt: string;
 };
 
+export type User = {
+  id: string;
+  role: Role;
+  name: string;
+  hotelName: string;
+  pin: string;
+  access: AccessStatus;
+  createdAt: string;
+};
+
 export type Session = {
   id: string;
+  userId?: string;
   role: Role;
   name: string;
   hotelName: string;
@@ -53,9 +69,11 @@ export type Database = {
   accessCodes: {
     owner: string;
     concierge: string;
+    ownerSignup: string;
   };
   trips: Trip[];
   bookings: Booking[];
+  users: User[];
   sessions: Session[];
   blockedRanges: BlockedRange[];
 };

@@ -1,8 +1,10 @@
 import { slotLabel, yearMonthIso } from "./calendar";
+import { hasOwnerAccess } from "./roles";
 import type {
   BlockedRange,
   Booking,
   Database,
+  Role,
   SlotAvailability,
   SlotStatus,
   TripAvailability,
@@ -122,15 +124,10 @@ export function bookingsConflictingWithRange(db: Database, startDate: string, en
     .sort((a, b) => a.date.localeCompare(b.date) || a.tripName.localeCompare(b.tripName));
 }
 
-export function visibleBookings(
-  db: Database,
-  role: "owner" | "concierge",
-  conciergeName?: string,
-): Booking[] {
-  const list =
-    role === "owner"
-      ? db.bookings
-      : db.bookings.filter((booking) => booking.conciergeName === conciergeName);
+export function visibleBookings(db: Database, role: Role, conciergeName?: string): Booking[] {
+  const list = hasOwnerAccess(role)
+    ? db.bookings
+    : db.bookings.filter((booking) => booking.conciergeName === conciergeName);
 
   return [...list].sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);

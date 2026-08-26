@@ -5,8 +5,9 @@ import { AvailabilityCalendar } from "./AvailabilityCalendar";
 import { BookingNotes } from "./BookingNotes";
 import { CancelTourForm } from "./CancelTourForm";
 import { SignOutButton } from "./SignOutButton";
+import { CHARTER_TYPES } from "@/lib/charters";
 import { parseYearMonth, yearMonthIso } from "@/lib/calendar";
-import { formatDate, formatTime, statusLabel, todayIso } from "@/lib/format";
+import { formatDate, formatTimeRange, statusLabel, todayIso } from "@/lib/format";
 import type { Booking, PublicSession, SlotAvailability, SlotStatus, Trip } from "@/lib/types";
 
 type Props = {
@@ -28,7 +29,10 @@ export function ConciergeApp({ session }: Props) {
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [selectedTripId, setSelectedTripId] = useState("");
   const [guestName, setGuestName] = useState("");
-  const [guestCount, setGuestCount] = useState("4");
+  const [charterType, setCharterType] = useState("");
+  const [guestCount, setGuestCount] = useState("");
+  const [charterStartTime, setCharterStartTime] = useState("08:00");
+  const [charterEndTime, setCharterEndTime] = useState("12:00");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
@@ -57,6 +61,12 @@ export function ConciergeApp({ session }: Props) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
+
+  useEffect(() => {
+    if (!selectedTrip) return;
+    setCharterStartTime(selectedTrip.startTime);
+    setCharterEndTime(selectedTrip.endTime);
+  }, [selectedTrip]);
 
   function selectSlot(date: string, tripId: string, status: SlotStatus, blocked: boolean) {
     setSelectedDate(date);
@@ -97,6 +107,9 @@ export function ConciergeApp({ session }: Props) {
         tripId: selectedTripId,
         date: selectedDate,
         guestName,
+        charterType,
+        charterStartTime,
+        charterEndTime,
         guestCount: Number(guestCount),
         phone,
         notes,
@@ -109,8 +122,10 @@ export function ConciergeApp({ session }: Props) {
       await load();
       return;
     }
-    setMessage("Hold submitted. The boat is pending owner approval.");
+    setMessage("Hold submitted. The boat is pending captain approval.");
     setGuestName("");
+    setCharterType("");
+    setGuestCount("");
     setNotes("");
     setPhone("");
     setSelectedTripId("");
@@ -148,7 +163,7 @@ export function ConciergeApp({ session }: Props) {
         <h2 className="font-semibold text-cyan-950">Pencil in a private charter</h2>
         <p className="text-sm text-cyan-700">
           {selectedTrip && selectedDate
-            ? `${formatDate(selectedDate)} · ${selectedTrip.name} · ${formatTime(selectedTrip.startTime)}–${formatTime(selectedTrip.endTime)} · entire boat`
+            ? `${formatDate(selectedDate)} · ${selectedTrip.name} · entire boat`
             : "Tap an open time (green) on the calendar."}
         </p>
         <input
@@ -158,14 +173,54 @@ export function ConciergeApp({ session }: Props) {
           className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
           required
         />
+        <label className="block space-y-1 text-sm font-medium text-cyan-900">
+          Type of charter
+          <select
+            value={charterType}
+            onChange={(event) => setCharterType(event.target.value)}
+            className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+            required
+          >
+            <option value="" disabled>
+              Choose type of charter
+            </option>
+            {CHARTER_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
         <input
           value={guestCount}
           onChange={(event) => setGuestCount(event.target.value)}
           inputMode="numeric"
-          placeholder="Guests on the boat"
+          placeholder="Number of guests"
           className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
           required
         />
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block space-y-1 text-sm font-medium text-cyan-900">
+            Start
+            <input
+              type="time"
+              value={charterStartTime}
+              onChange={(event) => setCharterStartTime(event.target.value)}
+              className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+              required
+            />
+          </label>
+          <label className="block space-y-1 text-sm font-medium text-cyan-900">
+            End
+            <input
+              type="time"
+              value={charterEndTime}
+              onChange={(event) => setCharterEndTime(event.target.value)}
+              className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+              required
+            />
+          </label>
+        </div>
         <input
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
@@ -198,8 +253,11 @@ export function ConciergeApp({ session }: Props) {
             <article key={booking.id} className="rounded-2xl bg-white p-4 shadow-sm">
               <p className="font-semibold text-cyan-950">{booking.guestName}</p>
               <p className="text-sm text-cyan-700">
-                {booking.tripName} · {formatDate(booking.date)} · {booking.guestCount} guests ·{" "}
-                {statusLabel(booking.status)}
+                {booking.tripName} · {formatDate(booking.date)}
+                {formatTimeRange(booking.charterStartTime ?? "", booking.charterEndTime ?? "")
+                  ? ` · ${formatTimeRange(booking.charterStartTime ?? "", booking.charterEndTime ?? "")}`
+                  : ""}{" "}
+                · {booking.guestCount} guests · {statusLabel(booking.status)}
               </p>
               <BookingNotes booking={booking} />
               <CancelTourForm booking={booking} onCancelled={load} />

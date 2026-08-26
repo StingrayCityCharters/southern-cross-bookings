@@ -1,7 +1,7 @@
 export const BLOCK_REASONS = [
   "Weather",
   "Boat maintenance",
-  "Crew or owner off",
+  "Crew or captain off",
   "Holiday / closed",
   "Private use",
   "Other",

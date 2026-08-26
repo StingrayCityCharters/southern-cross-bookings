@@ -42,3 +42,6 @@ next-env.d.ts
 
 # live booking database (created on first run)
 /data/db.json
+
+# local session cookies used for testing
+cookies-*.txt

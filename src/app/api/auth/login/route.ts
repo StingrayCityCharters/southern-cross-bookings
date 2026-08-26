@@ -1,9 +1,15 @@
-import { cookies } from "next/headers";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { setSessionCookie } from "@/lib/auth";
+import { isFourDigitPin, namesMatch, normalizePin } from "@/lib/pins";
 import { newId, withDb } from "@/lib/store";
-import type { Role } from "@/lib/types";
+import type { Role, Session } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+function pruneSessions(sessions: Session[]) {
+  return sessions.filter(
+    (item) => Date.now() - new Date(item.createdAt).getTime() < 1000 * 60 * 60 * 24 * 14,
+  );
+}
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -14,61 +20,82 @@ export async function POST(request: Request) {
   };
 
   const role = body.role;
-  const accessCode = (body.accessCode ?? "").trim();
+  const accessCode = normalizePin(body.accessCode ?? "");
   const name = (body.name ?? "").trim();
   const hotelName = (body.hotelName ?? "").trim();
 
-  if (role !== "owner" && role !== "concierge") {
-    return Response.json({ error: "Choose owner or concierge." }, { status: 400 });
+  if (role !== "owner" && role !== "concierge" && role !== "admin") {
+    return Response.json({ error: "Choose captain, concierge, or administrator." }, { status: 400 });
   }
-  if (!accessCode) {
-    return Response.json({ error: "Enter the access code." }, { status: 400 });
+  if (!name) {
+    return Response.json({ error: "Enter your name." }, { status: 400 });
   }
-  if (role === "concierge" && (!name || !hotelName)) {
-    return Response.json(
-      { error: "Enter your name and property so the owner knows who held the spot." },
-      { status: 400 },
-    );
+  if (!isFourDigitPin(accessCode)) {
+    return Response.json({ error: "Enter your 4-digit PIN." }, { status: 400 });
   }
 
   const session = await withDb((db) => {
+    const user = (db.users ?? []).find((item) => item.pin === accessCode);
+    if (user) {
+      if (user.access === "denied") {
+        return { error: "This account cannot sign in.", status: 403 } as const;
+      }
+      if (user.role !== role || !namesMatch(name, user.name)) {
+        return { error: "That name and PIN do not match.", status: 401 } as const;
+      }
+      const created = {
+        id: newId("ses"),
+        userId: user.id,
+        role: user.role,
+        name: user.name,
+        hotelName: user.hotelName,
+        createdAt: new Date().toISOString(),
+      };
+      db.sessions = pruneSessions(db.sessions);
+      db.sessions.push(created);
+      return { session: created } as const;
+    }
+
+    if (role === "admin") {
+      return { error: "That name and PIN do not match.", status: 401 } as const;
+    }
+
     const expected = db.accessCodes[role];
     if (accessCode !== expected) {
-      return null;
+      return { error: "That name and PIN do not match.", status: 401 } as const;
     }
+    if (role === "concierge" && !hotelName) {
+      return {
+        error: "Enter your hotel or property so the captain knows who held the spot.",
+        status: 400,
+      } as const;
+    }
+
     const created = {
       id: newId("ses"),
+      userId: "",
       role,
-      name: role === "owner" ? name || "Owner" : name,
+      name: role === "owner" ? name || "Captain" : name,
       hotelName: role === "owner" ? "Stingray City Charters" : hotelName,
       createdAt: new Date().toISOString(),
     };
-    db.sessions = db.sessions.filter(
-      (item) => Date.now() - new Date(item.createdAt).getTime() < 1000 * 60 * 60 * 24 * 14,
-    );
+    db.sessions = pruneSessions(db.sessions);
     db.sessions.push(created);
-    return created;
+    return { session: created } as const;
   });
 
-  if (!session) {
-    return Response.json({ error: "That access code is not correct." }, { status: 401 });
+  if ("error" in session) {
+    return Response.json({ error: session.error }, { status: session.status });
   }
 
-  const jar = await cookies();
-  jar.set(SESSION_COOKIE, session.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 14,
-  });
+  await setSessionCookie(session.session.id);
 
   return Response.json({
     session: {
-      role: session.role,
-      name: session.name,
-      hotelName: session.hotelName,
-      createdAt: session.createdAt,
+      role: session.session.role,
+      name: session.session.name,
+      hotelName: session.session.hotelName,
+      createdAt: session.session.createdAt,
     },
   });
 }

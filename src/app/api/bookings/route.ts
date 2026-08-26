@@ -1,5 +1,8 @@
 import { requireSession } from "@/lib/auth";
 import { isDateBlocked, remainingCharters, visibleBookings } from "@/lib/availability";
+import { isClockTime, normalizeClockTime } from "@/lib/calendar";
+import { isCharterType } from "@/lib/charters";
+import { hasOwnerAccess } from "@/lib/roles";
 import { newId, readOnlyDb, withDb } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +20,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const { session, error } = await requireSession();
   if (error) return error;
-  if (session.role !== "concierge") {
-    return Response.json(
-      { error: "Use the owner board to confirm or decline holds." },
-      { status: 403 },
-    );
+  if (session.role !== "concierge" && !hasOwnerAccess(session.role)) {
+    return Response.json({ error: "Please sign in to hold a charter." }, { status: 403 });
   }
 
   const body = (await request.json()) as {
@@ -29,6 +29,9 @@ export async function POST(request: Request) {
     date?: string;
     guestName?: string;
     guestCount?: number;
+    charterType?: string;
+    charterStartTime?: string;
+    charterEndTime?: string;
     phone?: string;
     notes?: string;
   };
@@ -37,6 +40,9 @@ export async function POST(request: Request) {
   const date = body.date ?? "";
   const guestName = (body.guestName ?? "").trim();
   const guestCount = Number(body.guestCount);
+  const charterType = (body.charterType ?? "").trim();
+  const requestedStart = normalizeClockTime(body.charterStartTime ?? "");
+  const requestedEnd = normalizeClockTime(body.charterEndTime ?? "");
   const phone = (body.phone ?? "").trim();
   const notes = (body.notes ?? "").trim();
 
@@ -45,6 +51,9 @@ export async function POST(request: Request) {
   }
   if (!guestName) {
     return Response.json({ error: "Enter the guest name." }, { status: 400 });
+  }
+  if (!isCharterType(charterType)) {
+    return Response.json({ error: "Choose the type of charter." }, { status: 400 });
   }
   if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > 40) {
     return Response.json({ error: "Enter how many guests will be on the boat." }, { status: 400 });
@@ -62,6 +71,15 @@ export async function POST(request: Request) {
       return { error: "That private charter is already held or booked." };
     }
 
+    const charterStartTime = requestedStart || trip.startTime;
+    const charterEndTime = requestedEnd || trip.endTime;
+    if (!isClockTime(charterStartTime) || !isClockTime(charterEndTime)) {
+      return { error: "Enter a start and end time." };
+    }
+    if (charterStartTime >= charterEndTime) {
+      return { error: "The end time must be after the start time." };
+    }
+
     const booking = {
       id: newId("bk"),
       tripId,
@@ -69,6 +87,9 @@ export async function POST(request: Request) {
       date,
       guestName,
       guestCount,
+      charterType,
+      charterStartTime,
+      charterEndTime,
       hotelName: session.hotelName,
       conciergeName: session.name,
       phone,
@@ -76,7 +97,7 @@ export async function POST(request: Request) {
       cancelReason: "",
       cancelledByName: "",
       cancelledByRole: "" as const,
-      status: "pending" as const,
+      status: hasOwnerAccess(session.role) ? "confirmed" : "pending",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -1,8 +1,20 @@
 import { cookies } from "next/headers";
 import { readOnlyDb } from "./store";
+import { hasOwnerAccess } from "./roles";
 import type { Session } from "./types";
 
 export const SESSION_COOKIE = "scc_session";
+
+export async function setSessionCookie(sessionId: string) {
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, sessionId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 14,
+  });
+}
 
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
@@ -22,10 +34,22 @@ export async function requireSession() {
 export async function requireOwner() {
   const { session, error } = await requireSession();
   if (error) return { session: null, error };
-  if (session.role !== "owner") {
+  if (!hasOwnerAccess(session.role)) {
     return {
       session: null,
-      error: Response.json({ error: "Owner access only." }, { status: 403 }),
+      error: Response.json({ error: "Captain access only." }, { status: 403 }),
+    };
+  }
+  return { session, error: null };
+}
+
+export async function requireAdmin() {
+  const { session, error } = await requireSession();
+  if (error) return { session: null, error };
+  if (session.role !== "admin") {
+    return {
+      session: null,
+      error: Response.json({ error: "Administrator access only." }, { status: 403 }),
     };
   }
   return { session, error: null };

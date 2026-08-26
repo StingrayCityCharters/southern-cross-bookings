@@ -13,8 +13,8 @@ const serif = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Stingray City Charters",
-  description: "Concierge holds and owner approvals for Stingray City Charters.",
+  title: "Southern Cross Bookings",
+  description: "Concierge holds and captain approvals for Southern Cross.",
 };
 
 export const viewport = {

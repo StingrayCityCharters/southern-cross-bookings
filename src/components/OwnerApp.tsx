@@ -8,7 +8,8 @@ import { CancelTourForm } from "./CancelTourForm";
 import { SignOutButton } from "./SignOutButton";
 import { BLOCK_REASONS } from "@/lib/blocks";
 import { datesBetween, parseYearMonth, yearMonthIso } from "@/lib/calendar";
-import { formatDate, formatTime, statusLabel, todayIso } from "@/lib/format";
+import { CHARTER_TYPES } from "@/lib/charters";
+import { formatDate, formatTimeRange, statusLabel, todayIso } from "@/lib/format";
 import type {
   BlockedRange,
   Booking,
@@ -48,11 +49,17 @@ export function OwnerApp({ session }: Props) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [error, setError] = useState("");
-  const [name, setName] = useState("");
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("12:00");
   const [openBookingId, setOpenBookingId] = useState("");
   const [calendarTool, setCalendarTool] = useState<"view" | "block">("view");
+  const [guestName, setGuestName] = useState("");
+  const [charterType, setCharterType] = useState("");
+  const [guestCount, setGuestCount] = useState("");
+  const [charterStartTime, setCharterStartTime] = useState("08:00");
+  const [charterEndTime, setCharterEndTime] = useState("12:00");
+  const [phone, setPhone] = useState("");
+  const [bookingNotes, setBookingNotes] = useState("");
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [busyHold, setBusyHold] = useState(false);
   const [blockedRanges, setBlockedRanges] = useState<BlockedRange[]>([]);
   const [blockStart, setBlockStart] = useState("");
   const [blockEnd, setBlockEnd] = useState("");
@@ -77,6 +84,8 @@ export function OwnerApp({ session }: Props) {
     [bookings, selectedDate, selectedTripId],
   );
   const selectedTrip = calendarTrips.find((trip) => trip.id === selectedTripId);
+  const selectedSlot =
+    selectedDate && selectedTripId ? days[selectedDate]?.[selectedTripId] : undefined;
   const bookedTrips = useMemo(
     () =>
       bookings
@@ -141,6 +150,12 @@ export function OwnerApp({ session }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
+  useEffect(() => {
+    if (!selectedTrip) return;
+    setCharterStartTime(selectedTrip.startTime);
+    setCharterEndTime(selectedTrip.endTime);
+  }, [selectedTrip]);
+
   async function setStatus(id: string, status: "confirmed" | "declined") {
     setError("");
     const response = await fetch(`/api/bookings/${id}`, {
@@ -152,22 +167,6 @@ export function OwnerApp({ session }: Props) {
     if (!response.ok) {
       setError(data.error ?? "Could not update that booking.");
     }
-    await load();
-  }
-
-  async function addTrip(event: FormEvent) {
-    event.preventDefault();
-    await fetch("/api/trips", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        startTime,
-        endTime,
-        boats: 1,
-      }),
-    });
-    setName("");
     await load();
   }
 
@@ -203,25 +202,92 @@ export function OwnerApp({ session }: Props) {
     await load();
   }
 
+  async function holdCharter(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedTripId || !selectedDate) {
+      setError("Tap an open time on the calendar.");
+      return;
+    }
+    if (selectedSlot && (selectedSlot.blocked || selectedSlot.status !== "available")) {
+      setError("That private charter is not open.");
+      return;
+    }
+    setBusyHold(true);
+    setError("");
+    setBookingMessage("");
+    const response = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tripId: selectedTripId,
+        date: selectedDate,
+        guestName,
+        charterType,
+        charterStartTime,
+        charterEndTime,
+        guestCount: Number(guestCount),
+        phone,
+        notes: bookingNotes,
+      }),
+    });
+    const data = (await response.json()) as { error?: string };
+    setBusyHold(false);
+    if (!response.ok) {
+      setError(data.error ?? "Could not book that charter.");
+      await load();
+      return;
+    }
+    setBookingMessage("Private charter booked.");
+    setGuestName("");
+    setCharterType("");
+    setGuestCount("");
+    setBookingNotes("");
+    setPhone("");
+    setSelectedTripId("");
+    await load();
+  }
+
   async function removeBlock(id: string) {
     await fetch(`/api/blocks/${id}`, { method: "DELETE" });
     await load();
   }
 
-  function selectSlot(date: string, tripId: string, _status: SlotStatus, _blocked: boolean) {
+  function selectSlot(date: string, tripId: string, status: SlotStatus, blocked: boolean) {
     setSelectedDate(date);
     setSelectedTripId(tripId);
+    setBookingMessage("");
+    if (blocked) {
+      setError("The boat is blocked on that date.");
+      return;
+    }
+    if (status === "available") {
+      setError("");
+      return;
+    }
+    setError("");
   }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-3 py-6 sm:px-4">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-cyan-700">Owner</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-700">
+            {session.role === "admin" ? "Administrator" : "Captain"}
+          </p>
           <h1 className="font-serif text-3xl text-cyan-950">Operations board</h1>
           <p className="text-sm text-cyan-800">{session.name}</p>
         </div>
-        <SignOutButton />
+        <div className="flex flex-col items-end gap-2">
+          {session.role === "admin" ? (
+            <a
+              href="/admin"
+              className="rounded-full border border-cyan-800/20 px-3 py-1.5 text-sm text-cyan-900"
+            >
+              Accounts
+            </a>
+          ) : null}
+          <SignOutButton />
+        </div>
       </header>
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1">
@@ -295,6 +361,9 @@ export function OwnerApp({ session }: Props) {
                 <article key={booking.id} className="mt-3 border-t border-cyan-100 pt-3">
                   <p className="font-semibold text-cyan-950">{booking.guestName}</p>
                   <p className="text-sm text-cyan-700">
+                    {formatTimeRange(booking.charterStartTime, booking.charterEndTime)
+                      ? `${formatTimeRange(booking.charterStartTime, booking.charterEndTime)} · `
+                      : ""}
                     {booking.guestCount} guests · {statusLabel(booking.status)}
                   </p>
                   <p className="text-sm text-cyan-700">
@@ -324,6 +393,89 @@ export function OwnerApp({ session }: Props) {
               ))
             )}
           </div>
+          {selectedTrip && selectedSlot?.status === "available" && !selectedSlot.blocked ? (
+            <form onSubmit={holdCharter} className="space-y-3 rounded-3xl bg-white p-4 shadow-sm">
+              <h2 className="font-semibold text-cyan-950">Book a private charter</h2>
+              <p className="text-sm text-cyan-700">
+                {formatDate(selectedDate)} · {selectedTrip.name} · entire boat
+              </p>
+              <input
+                value={guestName}
+                onChange={(event) => setGuestName(event.target.value)}
+                placeholder="Guest name"
+                className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
+                required
+              />
+              <label className="block space-y-1 text-sm font-medium text-cyan-900">
+                Type of charter
+                <select
+                  value={charterType}
+                  onChange={(event) => setCharterType(event.target.value)}
+                  className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+                  required
+                >
+                  <option value="" disabled>
+                    Choose type of charter
+                  </option>
+                  {CHARTER_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input
+                value={guestCount}
+                onChange={(event) => setGuestCount(event.target.value)}
+                inputMode="numeric"
+                placeholder="Number of guests"
+                className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
+                required
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block space-y-1 text-sm font-medium text-cyan-900">
+                  Start
+                  <input
+                    type="time"
+                    value={charterStartTime}
+                    onChange={(event) => setCharterStartTime(event.target.value)}
+                    className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+                    required
+                  />
+                </label>
+                <label className="block space-y-1 text-sm font-medium text-cyan-900">
+                  End
+                  <input
+                    type="time"
+                    value={charterEndTime}
+                    onChange={(event) => setCharterEndTime(event.target.value)}
+                    className="w-full rounded-xl border border-cyan-900/15 bg-white px-3 py-3 text-base font-normal text-cyan-950"
+                    required
+                  />
+                </label>
+              </div>
+              <input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="Guest phone (optional)"
+                className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
+              />
+              <textarea
+                value={bookingNotes}
+                onChange={(event) => setBookingNotes(event.target.value)}
+                placeholder="Notes for the boat (optional)"
+                className="min-h-24 w-full rounded-xl border border-cyan-900/15 px-3 py-3"
+              />
+              {bookingMessage ? <p className="text-sm text-emerald-700">{bookingMessage}</p> : null}
+              <button
+                type="submit"
+                disabled={busyHold}
+                className="w-full rounded-xl bg-cyan-800 px-4 py-3 font-semibold text-white disabled:opacity-60"
+              >
+                {busyHold ? "Booking…" : "Book private charter"}
+              </button>
+            </form>
+          ) : null}
             </>
           ) : (
             <>
@@ -437,7 +589,11 @@ export function OwnerApp({ session }: Props) {
               <article key={booking.id} className="rounded-2xl bg-white p-4 shadow-sm">
                 <p className="font-semibold text-cyan-950">{booking.guestName}</p>
                 <p className="text-sm text-cyan-700">
-                  {booking.tripName} · {formatDate(booking.date)} · {booking.guestCount} guests
+                  {booking.tripName} · {formatDate(booking.date)}
+                  {formatTimeRange(booking.charterStartTime, booking.charterEndTime)
+                    ? ` · ${formatTimeRange(booking.charterStartTime, booking.charterEndTime)}`
+                    : ""}{" "}
+                  · {booking.guestCount} guests
                 </p>
                 <p className="text-sm text-cyan-700">
                   {booking.conciergeName} · {booking.hotelName}
@@ -483,13 +639,11 @@ export function OwnerApp({ session }: Props) {
                 </h2>
                 <p className="text-sm text-cyan-700">
                   {formatDate(openBooking.date)} · {openBooking.tripName}
+                  {formatTimeRange(openBooking.charterStartTime, openBooking.charterEndTime)
+                    ? ` · ${formatTimeRange(openBooking.charterStartTime, openBooking.charterEndTime)}`
+                    : ""}
                 </p>
-                {openBookingTrip ? (
-                  <p className="text-sm text-cyan-700">
-                    {formatTime(openBookingTrip.startTime)} – {formatTime(openBookingTrip.endTime)} ·
-                    private charter
-                  </p>
-                ) : null}
+                <p className="text-sm text-cyan-700">private charter</p>
                 <p className="text-sm text-cyan-700">
                   {openBooking.guestCount} guests · {statusLabel(openBooking.status)}
                 </p>
@@ -535,42 +689,16 @@ export function OwnerApp({ session }: Props) {
                       {booking.guestName} · {booking.hotelName}
                     </p>
                     <p className="text-sm text-cyan-700">
-                      {formatDate(booking.date)} · {booking.tripName} · {statusLabel(booking.status)}
+                      {formatDate(booking.date)} · {booking.tripName}
+                      {formatTimeRange(booking.charterStartTime, booking.charterEndTime)
+                        ? ` · ${formatTimeRange(booking.charterStartTime, booking.charterEndTime)}`
+                        : ""}{" "}
+                      · {statusLabel(booking.status)}
                     </p>
                     <p className="mt-2 text-sm font-semibold text-cyan-800">View details →</p>
                   </button>
                 ))
               )}
-              <form onSubmit={addTrip} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
-                <h2 className="font-semibold text-cyan-950">Add a charter time</h2>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Trip name"
-                  className="w-full rounded-xl border border-cyan-900/15 px-3 py-3"
-                  required
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(event) => setStartTime(event.target.value)}
-                    className="rounded-xl border border-cyan-900/15 px-3 py-3"
-                  />
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(event) => setEndTime(event.target.value)}
-                    className="rounded-xl border border-cyan-900/15 px-3 py-3"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-cyan-800 px-4 py-3 font-semibold text-white"
-                >
-                  Save time
-                </button>
-              </form>
             </>
           )}
         </section>

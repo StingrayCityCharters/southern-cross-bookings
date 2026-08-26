@@ -1,41 +1,48 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { readSignInMemory, writeSignInMemory, type SignInRole } from "@/lib/login-memory";
-import { pathForRole, roleTabLabel } from "@/lib/roles";
+import { FormEvent, useState } from "react";
+import { writeSignInMemory } from "@/lib/login-memory";
+import { OWNER_SIGNUP_PIN } from "@/lib/pins";
+import { needsMasterPin, pathForRole, roleTabLabel } from "@/lib/roles";
+import type { Role } from "@/lib/types";
 
-export function LoginForm() {
-  const [role, setRole] = useState<SignInRole>("concierge");
+export function SignupForm() {
+  const [role, setRole] = useState<Role>("concierge");
   const [name, setName] = useState("");
   const [hotelName, setHotelName] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [ownerSignupPin, setOwnerSignupPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [remembered, setRemembered] = useState(false);
-
-  useEffect(() => {
-    const saved = readSignInMemory();
-    if (saved.role) setRole(saved.role);
-    if (saved.name) setName(saved.name);
-    if (saved.hotelName) setHotelName(saved.hotelName);
-    setRemembered(Boolean(saved.name || saved.hotelName));
-  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    if (needsMasterPin(role) && ownerSignupPin !== OWNER_SIGNUP_PIN) {
+      setError("That master PIN is not correct.");
+      setBusy(false);
+      return;
+    }
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, name, hotelName, accessCode }),
+        body: JSON.stringify({
+          role,
+          name,
+          hotelName,
+          pin,
+          confirmPin,
+          ownerSignupPin,
+        }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
         setBusy(false);
-        setError(data.error ?? "Could not sign in.");
+        setError(data.error ?? "Could not create your PIN.");
         return;
       }
       writeSignInMemory({ role, name: name.trim(), hotelName: hotelName.trim() });
@@ -84,27 +91,54 @@ export function LoginForm() {
             onChange={(event) => setHotelName(event.target.value)}
             className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950"
             placeholder="Grand Cayman Resort"
+            required
           />
         </label>
       ) : null}
 
-      {remembered ? (
-        <p className="text-xs text-cyan-200">Saved on this phone. Change only if needed, then enter your PIN.</p>
-      ) : null}
-
       <label className="block space-y-1">
-        <span className="text-sm text-cyan-100">4-digit PIN</span>
+        <span className="text-sm text-cyan-100">Choose a 4-digit PIN</span>
         <input
-          value={accessCode}
-          onChange={(event) => setAccessCode(event.target.value)}
+          value={pin}
+          onChange={(event) => setPin(event.target.value)}
           className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950 tracking-widest"
           inputMode="numeric"
-          autoComplete="one-time-code"
+          autoComplete="new-password"
           maxLength={4}
           pattern="\d{4}"
           required
         />
       </label>
+
+      <label className="block space-y-1">
+        <span className="text-sm text-cyan-100">Confirm PIN</span>
+        <input
+          value={confirmPin}
+          onChange={(event) => setConfirmPin(event.target.value)}
+          className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950 tracking-widest"
+          inputMode="numeric"
+          autoComplete="new-password"
+          maxLength={4}
+          pattern="\d{4}"
+          required
+        />
+      </label>
+
+      {needsMasterPin(role) ? (
+        <label className="block space-y-1">
+          <span className="text-sm text-cyan-100">Master pin</span>
+          <input
+            value={ownerSignupPin}
+            onChange={(event) => setOwnerSignupPin(event.target.value)}
+            className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950 tracking-widest"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={4}
+            pattern="\d{4}"
+            required
+          />
+        </label>
+      ) : null}
 
       {error ? <p className="text-sm text-amber-200">{error}</p> : null}
 
@@ -113,7 +147,7 @@ export function LoginForm() {
         disabled={busy}
         className="min-h-12 w-full rounded-xl bg-amber-300 px-4 py-3 text-base font-semibold text-cyan-950 touch-manipulation disabled:opacity-60"
       >
-        {busy ? "Signing in…" : "Open bookings"}
+        {busy ? "Creating PIN…" : "Create PIN and open bookings"}
       </button>
     </form>
   );

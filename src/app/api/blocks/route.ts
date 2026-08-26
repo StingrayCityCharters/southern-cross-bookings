@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { session, error } = await requireOwner();
-  if (error || !session) return error ?? Response.json({ error: "Owner access only." }, { status: 403 });
+  if (error || !session) return error ?? Response.json({ error: "Captain access only." }, { status: 403 });
 
   const body = (await request.json()) as {
     startDate?: string;

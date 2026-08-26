@@ -1,4 +1,4 @@
-# Stingray City Charters bookings
+# Southern Cross Bookings
 
 Web app for **owners** and **hotel concierges**. Each booking is a **private charter** of the whole boat. Concierges and owners both see a month calendar of open, pending, and booked times.
 

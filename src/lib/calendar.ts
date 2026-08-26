@@ -32,6 +32,16 @@ export function monthWeeks(year: number, month: number) {
   return weeks;
 }
 
+export function normalizeClockTime(value: string) {
+  const match = value.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)/);
+  if (!match) return "";
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+export function isClockTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(normalizeClockTime(value));
+}
+
 export function slotLabel(startTime: string) {
   const [hourRaw, minuteRaw] = startTime.split(":");
   const hour = Number(hourRaw);
