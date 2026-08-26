@@ -28,3 +28,9 @@ Change these later in `data/db.json` after the first run (that file is created a
 3. The concierge taps an open time and pencils in a private hold for one guest party.
 4. The owner sees the same calendar, then approves or declines.
 5. A pending or confirmed hold takes the whole boat for that date and time.
+
+## Host on GoDaddy
+
+Connect the GitHub repo to **GoDaddy Node.js Hosting**. They will install production packages, run `npm run build`, then `npm start`.
+
+The live site uses a file on the server for bookings. Publishing a new version can replace that file, so treat the first hosted copy as a trial.
