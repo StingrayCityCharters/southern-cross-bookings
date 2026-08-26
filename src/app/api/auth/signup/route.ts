@@ -1,5 +1,5 @@
 import { setSessionCookie } from "@/lib/auth";
-import { isFourDigitPin, normalizePin, OWNER_SIGNUP_PIN } from "@/lib/pins";
+import { isFourDigitPin, namesMatch, normalizePin, OWNER_SIGNUP_PIN } from "@/lib/pins";
 import { needsMasterPin } from "@/lib/roles";
 import { newId, withDb } from "@/lib/store";
 import type { Role, Session } from "@/lib/types";
@@ -52,9 +52,11 @@ export async function POST(request: Request) {
     if (pin === OWNER_SIGNUP_PIN) {
       return { error: "That PIN is reserved. Choose a different 4-digit PIN." } as const;
     }
-    const taken = (db.users ?? []).some((user) => user.pin === pin);
-    if (taken) {
-      return { error: "That PIN is already in use. Choose another." } as const;
+    const samePerson = (db.users ?? []).some(
+      (user) => user.pin === pin && user.role === role && namesMatch(name, user.name),
+    );
+    if (samePerson) {
+      return { error: "That name already uses this PIN. Sign in instead." } as const;
     }
 
     const user = {

@@ -9,8 +9,8 @@ export default function SignupPage() {
           <p className="text-xs uppercase tracking-[0.35em] text-amber-200">Southern Cross Bookings</p>
           <h1 className="font-serif text-4xl leading-tight">Create your PIN</h1>
           <p className="text-cyan-100">
-            Concierges, captains, and administrators each pick a unique 4-digit PIN. Captain and
-            administrator sign-up also need the master PIN.
+            Concierges, captains, and administrators each pick a 4-digit PIN. More than one person
+            may use the same PIN. Captain and administrator sign-up also need the master PIN.
           </p>
         </header>
         <SignupForm />

@@ -35,7 +35,18 @@ export async function POST(request: Request) {
   }
 
   const session = await withDb((db) => {
-    const user = (db.users ?? []).find((item) => item.pin === accessCode);
+    const matches = (db.users ?? []).filter(
+      (item) => item.pin === accessCode && item.role === role && namesMatch(name, item.name),
+    );
+    const user =
+      matches.length === 1
+        ? matches[0]
+        : matches.length > 1
+          ? matches.find((item) => item.hotelName.trim().toLowerCase() === hotelName.toLowerCase())
+          : undefined;
+    if (matches.length > 1 && !user) {
+      return { error: "That name and PIN match more than one account. Add the hotel name.", status: 401 } as const;
+    }
     if (user) {
       if (user.access === "denied") {
         return { error: "This account cannot sign in.", status: 403 } as const;
