@@ -33,4 +33,6 @@ Change these later in `data/db.json` after the first run (that file is created a
 
 Connect the GitHub repo to **GoDaddy Node.js Hosting**. They will install production packages, run `npm run build`, then `npm start`.
 
-The live site uses a file on the server for bookings. Publishing a new version can replace that file, so treat the first hosted copy as a trial.
+On GoDaddy, reservations and account PINs are stored in the included **MySQL** database so they survive app updates. This computer still uses `data/db.json` for local testing. After you publish this version once, later publishes should keep live bookings and PINs.
+
+If the live site starts empty after the first MySQL publish, open the app’s MySQL / environment settings in GoDaddy and confirm `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are set for the published app.
