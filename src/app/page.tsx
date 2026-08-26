@@ -1,3 +1,4 @@
+import { HomeScreenQr } from "@/components/HomeScreenQr";
 import { LoginForm } from "@/components/LoginForm";
 import Link from "next/link";
 
@@ -18,12 +19,17 @@ export default function Home() {
             Create one
           </Link>
         </p>
-        <p className="text-center text-sm text-cyan-100">
-          Put this on a phone home screen?{" "}
-          <Link href="/install" className="font-semibold text-amber-200 underline underline-offset-2">
-            Scan or install
-          </Link>
-        </p>
+        <section className="space-y-3 rounded-3xl bg-white/10 p-4">
+          <h2 className="text-center font-semibold text-white">Add to a phone home screen</h2>
+          <p className="text-center text-sm text-cyan-100">
+            Scan this code, then tap Add to Home Screen. You can also open{" "}
+            <Link href="/install" className="font-semibold text-amber-200 underline underline-offset-2">
+              /install
+            </Link>
+            .
+          </p>
+          <HomeScreenQr path="/install" />
+        </section>
       </div>
     </main>
   );
