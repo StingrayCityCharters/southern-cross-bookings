@@ -18,6 +18,12 @@ export default function Home() {
             Create one
           </Link>
         </p>
+        <p className="text-center text-sm text-cyan-100">
+          Put this on a phone home screen?{" "}
+          <Link href="/install" className="font-semibold text-amber-200 underline underline-offset-2">
+            Scan or install
+          </Link>
+        </p>
       </div>
     </main>
   );
