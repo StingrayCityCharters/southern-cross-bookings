@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { writeSignInMemory } from "@/lib/login-memory";
+import { FormEvent, useEffect, useState } from "react";
+import { readSignInMemory, writeSignInMemory } from "@/lib/login-memory";
 import { OWNER_SIGNUP_PIN } from "@/lib/pins";
 import { needsMasterPin, pathForRole, roleTabLabel } from "@/lib/roles";
 import type { Role } from "@/lib/types";
@@ -15,6 +15,13 @@ export function SignupForm() {
   const [ownerSignupPin, setOwnerSignupPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const saved = readSignInMemory();
+    if (saved.role) setRole(saved.role);
+    if (saved.name) setName(saved.name);
+    if (saved.hotelName) setHotelName(saved.hotelName);
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -77,7 +84,6 @@ export function SignupForm() {
           value={name}
           onChange={(event) => setName(event.target.value)}
           className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950"
-          placeholder="Alex Rivera"
           autoComplete="name"
           required
         />
@@ -90,7 +96,6 @@ export function SignupForm() {
             value={hotelName}
             onChange={(event) => setHotelName(event.target.value)}
             className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950"
-            placeholder="Grand Cayman Resort"
             required
           />
         </label>

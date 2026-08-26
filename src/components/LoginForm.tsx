@@ -70,7 +70,6 @@ export function LoginForm() {
           value={name}
           onChange={(event) => setName(event.target.value)}
           className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950"
-          placeholder="Alex Rivera"
           autoComplete="name"
           required
         />
@@ -83,7 +82,6 @@ export function LoginForm() {
             value={hotelName}
             onChange={(event) => setHotelName(event.target.value)}
             className="w-full rounded-xl border border-white/15 bg-white/95 px-3 py-3 text-base text-cyan-950"
-            placeholder="Grand Cayman Resort"
           />
         </label>
       ) : null}
