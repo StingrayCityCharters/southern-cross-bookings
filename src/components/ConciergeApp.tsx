@@ -164,7 +164,7 @@ export function ConciergeApp({ session }: Props) {
         <p className="text-sm text-cyan-700">
           {selectedTrip && selectedDate
             ? `${formatDate(selectedDate)} · ${selectedTrip.name} · entire boat`
-            : "Tap an open time (green) on the calendar."}
+            : "Tap an open time (blue) on the calendar."}
         </p>
         <input
           value={guestName}

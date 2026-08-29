@@ -24,9 +24,9 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function chipClass(status: string) {
   if (status === "pending") return "bg-amber-100 text-amber-900";
-  if (status === "booked") return "bg-slate-200 text-slate-700";
+  if (status === "booked") return "bg-green-200 text-green-900";
   if (status === "blocked") return "bg-rose-100 text-rose-900";
-  return "bg-white/70 text-cyan-800";
+  return "bg-sky-200 text-sky-950";
 }
 
 export function BlockDaysCalendar({
@@ -156,7 +156,7 @@ export function BlockDaysCalendar({
           <span className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" /> Pending
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-3 w-3 rounded bg-slate-200 ring-1 ring-slate-300" /> Confirmed
+          <span className="h-3 w-3 rounded bg-green-200 ring-1 ring-green-400" /> Confirmed
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" /> Already blocked

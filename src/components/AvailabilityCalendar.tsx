@@ -21,10 +21,10 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function chipClass(status: SlotStatus, selected: boolean) {
   if (selected) return "bg-cyan-800 text-white";
-  if (status === "available") return "bg-emerald-100 text-emerald-900";
+  if (status === "available") return "bg-sky-200 text-sky-950";
   if (status === "pending") return "bg-amber-100 text-amber-900";
   if (status === "blocked") return "bg-rose-100 text-rose-900";
-  return "bg-slate-200 text-slate-500";
+  return "bg-green-200 text-green-900";
 }
 
 export function AvailabilityCalendar({
@@ -117,13 +117,13 @@ export function AvailabilityCalendar({
 
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-cyan-800">
         <span className="inline-flex items-center gap-1">
-          <span className="h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300" /> Open
+          <span className="h-3 w-3 rounded bg-sky-200 ring-1 ring-sky-400" /> Open
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" /> Hold pending
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-3 w-3 rounded bg-slate-200 ring-1 ring-slate-300" /> Booked
+          <span className="h-3 w-3 rounded bg-green-200 ring-1 ring-green-400" /> Booked
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" /> Blocked
