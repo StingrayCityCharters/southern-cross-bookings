@@ -4,6 +4,7 @@ import { isClockTime, normalizeClockTime } from "@/lib/calendar";
 import { isCharterType } from "@/lib/charters";
 import { hasOwnerAccess } from "@/lib/roles";
 import { newId, readOnlyDb, withDb } from "@/lib/store";
+import { notifyAdminOfHold } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,9 @@ export async function POST(request: Request) {
 
   if ("error" in result && result.error) {
     return Response.json({ error: result.error }, { status: 409 });
+  }
+  if (result.booking?.status === "pending") {
+    await notifyAdminOfHold(result.booking);
   }
   return Response.json(result);
 }

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AvailabilityCalendar } from "./AvailabilityCalendar";
 import { BookingNotes } from "./BookingNotes";
 import { CancelTourForm } from "./CancelTourForm";
+import { ConciergeGuides } from "./ConciergeGuides";
 import { SignOutButton } from "./SignOutButton";
 import { CHARTER_TYPES } from "@/lib/charters";
 import { parseYearMonth, yearMonthIso } from "@/lib/calendar";
@@ -144,6 +145,8 @@ export function ConciergeApp({ session }: Props) {
         </div>
         <SignOutButton />
       </header>
+
+      <ConciergeGuides />
 
       <AvailabilityCalendar
         year={year}

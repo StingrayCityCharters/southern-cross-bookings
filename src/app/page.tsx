@@ -30,6 +30,11 @@ export default function Home() {
           </p>
           <HomeScreenQr path="/install" />
         </section>
+        <p className="text-center text-xs text-cyan-200">
+          <Link href="/privacy" className="underline underline-offset-2">
+            Privacy policy
+          </Link>
+        </p>
       </div>
     </main>
   );
