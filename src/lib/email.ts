@@ -3,7 +3,7 @@ import { sendEmail } from "@/server/email";
 import type { Booking } from "./types";
 
 export async function sendHoldEmail(booking: Booking) {
-  const to = (process.env.ADMIN_NOTIFY_EMAIL ?? "").trim();
+  const to = (process.env.ADMIN_NOTIFY_EMAIL ?? "chipwhitney@gmail.com").trim();
   if (!to) {
     console.error("email.hold.recipient_unset");
     return;
@@ -15,6 +15,7 @@ export async function sendHoldEmail(booking: Booking) {
       subject: `Southern Cross hold · ${booking.guestName} · ${booking.date}`,
       text: holdMessage(booking),
     });
+    console.error("email.hold.ok");
   } catch {
     console.error("Admin hold email failed");
   }
