@@ -1,24 +1,12 @@
 import { formatDate, formatTimeRange } from "./format";
+import { holdMessage } from "./hold-alert";
 import type { Booking } from "./types";
 
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
 
-function holdMessage(booking: Booking) {
-  const lines = [
-    "New Southern Cross hold",
-    `${formatDate(booking.date)} · ${booking.tripName} · ${formatTimeRange(booking.charterStartTime, booking.charterEndTime)}`,
-    `Guest: ${booking.guestName} (${booking.guestCount})`,
-    `Charter: ${booking.charterType}`,
-    `Concierge: ${booking.conciergeName} · ${booking.hotelName}`,
-  ];
-  if (booking.phone) lines.push(`Guest phone: ${booking.phone}`);
-  if (booking.notes) lines.push(`Notes: ${booking.notes}`);
-  return lines.join("\n");
-}
-
-export async function notifyAdminOfHold(booking: Booking) {
+export async function sendHoldWhatsApp(booking: Booking) {
   if (booking.status !== "pending") return;
 
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -27,13 +15,11 @@ export async function notifyAdminOfHold(booking: Booking) {
   if (!token || !phoneNumberId || !to) return;
 
   const templateName = (process.env.WHATSAPP_TEMPLATE_NAME ?? "").trim();
-  const templateLang = (process.env.WHATSAPP_TEMPLATE_LANG ?? "en").trim() || "en";
-  const payload = templateName
-    ? {
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
+  const templateLang = (process.env.WHATSAPP_TEMPLATE_LANG ?? "en_US").trim() || "en_US";
+  const templateParamCount = Number(process.env.WHATSAPP_TEMPLATE_PARAMS ?? "0");
+  const template =
+    templateParamCount > 0
+      ? {
           name: templateName,
           language: { code: templateLang },
           components: [
@@ -48,10 +34,20 @@ export async function notifyAdminOfHold(booking: Booking) {
                 { type: "text", text: `${booking.guestName} (${booking.guestCount})` },
                 { type: "text", text: booking.conciergeName || "-" },
                 { type: "text", text: booking.hotelName || "-" },
-              ],
+              ].slice(0, templateParamCount),
             },
           ],
-        },
+        }
+      : {
+          name: templateName,
+          language: { code: templateLang },
+        };
+  const payload = templateName
+    ? {
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template,
       }
     : {
         messaging_product: "whatsapp",

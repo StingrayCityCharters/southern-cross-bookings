@@ -4,7 +4,7 @@ import { isClockTime, normalizeClockTime } from "@/lib/calendar";
 import { isCharterType } from "@/lib/charters";
 import { hasOwnerAccess } from "@/lib/roles";
 import { newId, readOnlyDb, withDb } from "@/lib/store";
-import { notifyAdminOfHold } from "@/lib/whatsapp";
+import { notifyAdminOfHold } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
