@@ -4,9 +4,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   serverExternalPackages: ["mysql2"],
   allowedDevOrigins: [
     "127.0.0.1",
